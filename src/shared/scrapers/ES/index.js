@@ -1,35 +1,15 @@
-import assert from 'assert';
-import datetime from '../../lib/datetime/iso/index.js';
 import * as fetch from '../../lib/fetch/index.js';
-import * as transform from '../../lib/transform.js';
 import * as parse from '../../lib/parse.js';
+import * as transform from '../../lib/transform.js';
+import datetime from '../../lib/datetime/iso/index.js';
+import getIso2FromName from '../../utils/get-iso2-from-name.js';
 
 const { looksLike } = datetime;
 
-const countryLevelMap = {
-  Andalucía: 'iso2:ES-AN',
-  Aragón: 'iso2:ES-AR',
-  Asturias: 'iso2:ES-AS',
-  Baleares: 'iso2:ES-IB',
-  Canarias: 'iso2:ES-CN',
-  Cantabria: 'iso2:ES-CB',
-  'Castilla-La Mancha': 'iso2:ES-CM',
-  'Castilla y León': 'iso2:ES-CL',
-  Cataluña: 'iso2:ES-CT',
-  Ceuta: 'iso2:ES-CE',
-  'C. Valenciana': 'iso2:ES-VC',
-  Extremadura: 'iso2:ES-EX',
-  Galicia: 'iso2:ES-GA',
-  Madrid: 'iso2:ES-MD',
-  Melilla: 'iso2:ES-ML',
-  Murcia: 'iso2:ES-MC',
-  Navarra: 'iso2:ES-NC',
-  'País Vasco': 'iso2:ES-PV',
-  'La Rioja': 'iso2:ES-RI'
-};
+const country = 'iso1:ES';
 
 const scraper = {
-  country: 'iso1:ES',
+  country,
   url: 'https://github.com/datadista/datasets/tree/master/COVID%2019',
   priority: 1,
   timeseries: true,
@@ -49,7 +29,7 @@ const scraper = {
   ],
   curators: [
     {
-      name: 'Antonio Delgado', //
+      name: 'Antonio Delgado',
       url: 'https://datadista.com/',
       twitter: '@adelgado',
       github: 'adelgadob'
@@ -57,7 +37,7 @@ const scraper = {
   ],
   maintainers: [
     {
-      name: 'Herb Caudill', //
+      name: 'Herb Caudill',
       url: 'https://devresults.com',
       twitter: '@herbcaudill',
       github: 'herbcaudill'
@@ -124,19 +104,21 @@ const scraper = {
         const recoveredRow = rawData.recovered.find(isSameLocation);
         return Object.keys(casesRow)
           .filter(looksLike.isoDate)
-          .map(date => {
-            const state = parse.string(location);
-            const stateMapped = countryLevelMap[state];
-            assert(stateMapped, `${state} not found in countryLevelMap`);
-
-            return {
-              state: stateMapped,
-              date: datetime.parse(date).toString(),
-              cases: parse.number(casesRow[date]),
-              deaths: parse.number(deathsRow[date] || 0),
-              recovered: parse.number(recoveredRow[date] || 0)
-            };
-          });
+          .map(date => ({
+            state: getIso2FromName({
+              country,
+              name: parse
+                .string(location)
+                .replace('Cataluña', 'Catalonia')
+                .replace('C. Valenciana', 'Valencian Community')
+                .replace('Baleares', 'Balearic Islands')
+                .replace('Navarra', 'Navarre')
+            }),
+            date: datetime.parse(date).toString(),
+            cases: parse.number(casesRow[date]),
+            deaths: parse.number(deathsRow[date] || 0),
+            recovered: parse.number(recoveredRow[date] || 0)
+          }));
       });
 
     // `data` is an array of objects that look like this:

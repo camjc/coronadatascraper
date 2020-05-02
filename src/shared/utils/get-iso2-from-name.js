@@ -19,17 +19,25 @@ slugify.extend({ ō: 'o' });
  */
 const getIso2FromName = ({ country, name }) => {
   const iso2WithinIso1 = Object.values(iso2).filter(item => item.iso2.startsWith(country.replace('iso1:', '')));
+  const minLevel = Math.min(...iso2WithinIso1.map(item => item.admin_level));
+  const largestIso2s = iso2WithinIso1.filter(item => item.admin_level === minLevel);
   if (name === UNASSIGNED) {
     return name;
   }
   const slugName = slugify(name, slugifyOptions);
-  const foundItems = iso2WithinIso1.filter(canonicalItem =>
-    slugify(canonicalItem.name, slugifyOptions).includes(slugName)
-  );
+  const foundItems = largestIso2s.filter(canonicalItem => {
+    const slugifiedCanonicalName = slugify(canonicalItem.name, slugifyOptions);
+    const slugifiedWikipediaName = slugify(
+      canonicalItem.wikipedia_id.replace(/\w+:/, '').replace(/ \(.+\)/, ''),
+      slugifyOptions
+    );
+    return slugifiedCanonicalName.includes(slugName) || slugifiedWikipediaName.includes(slugName);
+  });
+
   assert.equal(
     foundItems.length,
     1,
-    `no single match found for ${name} in ${country}. Found ${iso2WithinIso1.map(item => item.name).join()}`
+    `no single match found for ${name} in ${country}. Found ${largestIso2s.map(item => item.name).join()}`
   );
   return foundItems[0].countrylevel_id;
 };

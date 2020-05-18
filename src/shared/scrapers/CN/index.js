@@ -28,6 +28,27 @@ const scraper = {
   type: 'json',
   async scraper() {
     const date = datetime.getYYYYMMDD(process.env.SCRAPE_DATE).replace(/-/g, '');
+
+    this.url = 'http://2019ncov.chinacdc.cn/2019-nCoV/config.js';
+    const dashboardRaw = await fetch.raw(this, this.url, 'default', false);
+    const dashboardJSON = dashboardRaw.match(/weekDataName:\s(\[.+\]),\sweekData:\s/);
+    assert(dashboardJSON, 'JSON Error');
+    const dashboardConfig = JSON.parse(dashboardJSON[1]);
+
+    const firstDate = dashboardConfig[0]
+      .match(/(\d{4})(\d{2})(\d{2})/)
+      .slice(1, 4)
+      .join('-');
+    const lastDate = dashboardConfig[dashboardConfig.length - 1]
+      .match(/(\d{4})(\d{2})(\d{2})/)
+      .slice(1, 4)
+      .join('-');
+
+    if (!dashboardConfig.includes(`yq_${date}.json`)) {
+      console.error(`  🚨  No Data for ${date}`);
+      console.info(`  📅  Data available from ${firstDate} to ${lastDate}`);
+      return false;
+    }
     this.url = `http://49.4.25.117/JKZX/yq_${date}.json`;
     const $ = await fetch.json(this, this.url, 'default', false);
     assert($, 'No data fetched');
@@ -36,10 +57,17 @@ const scraper = {
 
     assert(attributes.length > 1, 'data fetch failed, no attributes');
 
+    const localizationTZ = {
+      'Hong Kong': 'Asia/Hong_Kong',
+      Macau: 'Asia/Macau',
+      Xinjiang: 'Asia/Urumqi'
+    };
+
     const states = attributes.map(item => ({
       state: getIso2FromName({ country, name: latinizationMap[item.name] }),
       cases: item[casesKey],
-      deaths: item[deathsKey]
+      deaths: item[deathsKey],
+      tz: [localizationTZ[latinizationMap[item.name]] || 'Asia/Shanghai']
     }));
 
     const summedData = transform.sumData(states);
